@@ -9,6 +9,36 @@ NS_ASSUME_NONNULL_BEGIN
 @class UAScheduleTriggerData;
 
 /**
+ * Schedule execution states.
+ */
+typedef NS_ENUM(NSUInteger, UAScheduleState) {
+    /**
+     * Schedule is idle.
+     */
+    UAScheduleStateIdle = 0,
+
+    /**
+     * Schedule is pending execution.
+     */
+    UAScheduleStatePendingExecution = 1,
+
+    /**
+     * Schedule is executing.
+     */
+    UAScheduleStateExecuting = 2,
+
+    /**
+     * Schedule is paused.
+     */
+    UAScheduleStatePaused = 3,
+
+    /**
+     * Schedule is finished.
+     */
+    UAScheduleStateFinished = 4
+};
+
+/**
  * CoreData class representing the backing data for
  * a UASchedule.
  *
@@ -97,6 +127,11 @@ NS_ASSUME_NONNULL_BEGIN
  * The schedule's interval in seconds.
  */
 @property(nullable, nonatomic, retain) NSNumber *interval;
+
+/**
+ * Whether the scheudle has exceeded its limit.
+ */
+- (BOOL)isOverLimit;
 
 @end
 

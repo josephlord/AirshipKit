@@ -3,6 +3,7 @@
 #import "UAChannelRegistrationPayload+Internal.h"
 #import "UAirship.h"
 #import "UAAnalytics.h"
+#import "UAJSONSerialization+Internal.h"
 
 NSString *const UAChannelIdentityHintsKey = @"identity_hints";
 NSString *const UAChannelUserIDKey = @"user_id";
@@ -64,7 +65,6 @@ NSString *const UABackgroundEnabledJSONKey = @"background";
             self.backgroundEnabled = [topLevel[UABackgroundEnabledJSONKey] boolValue];
             self.setTags = [topLevel[UAChannelSetTagsKey] boolValue];
             self.tags = topLevel[UAChannelTagsJSONKey];
-            self.alias = topLevel[UAChannelAliasJSONKey];
             self.language = topLevel[UAChannelTopLevelLanguageJSONKey];
             self.country = topLevel[UAChannelTopLevelCountryJSONKey];
             self.timeZone = topLevel[UAChannelTopLevelTimeZoneJSONKey];
@@ -80,7 +80,7 @@ NSString *const UABackgroundEnabledJSONKey = @"background";
 }
 
 - (NSData *)asJSONData {
-    return [NSJSONSerialization dataWithJSONObject:[self payloadDictionary]
+    return [UAJSONSerialization dataWithJSONObject:[self payloadDictionary]
                                            options:0
                                              error:nil];
 }
@@ -105,11 +105,6 @@ NSString *const UABackgroundEnabledJSONKey = @"background";
     [channel setValue:[NSNumber numberWithBool:self.backgroundEnabled] forKey:UABackgroundEnabledJSONKey];
 #endif
     [channel setValue:self.pushAddress forKey:UAChannelPushAddressKey];
-
-    self.alias = [self.alias stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-    if ([self.alias length] > 0) {
-        [channel setValue:self.alias forKey:UAChannelAliasJSONKey];
-    }
 
     [channel setValue:[NSNumber numberWithBool:self.setTags] forKey:UAChannelSetTagsKey];
     if (self.setTags) {
@@ -145,7 +140,6 @@ NSString *const UABackgroundEnabledJSONKey = @"background";
         copy.pushAddress = self.pushAddress;
         copy.setTags = self.setTags;
         copy.tags = [self.tags copyWithZone:zone];
-        copy.alias = self.alias;
         copy.quietTime = [self.quietTime copyWithZone:zone];
         copy.timeZone = self.timeZone;
         copy.language = self.language;
@@ -156,10 +150,26 @@ NSString *const UABackgroundEnabledJSONKey = @"background";
     return copy;
 }
 
+- (BOOL)isEqual:(id)other {
+    if (other == self) {
+        return YES;
+    }
+    
+    if (![other isKindOfClass:[self class]]) {
+        return NO;
+    }
+    
+    return [self isEqualToPayload:(UAChannelRegistrationPayload *)other];
+}
+
 - (BOOL)isEqualToPayload:(UAChannelRegistrationPayload *)payload {
     return [[self payloadDictionary] isEqualToDictionary:[payload payloadDictionary]];
 }
 
+- (NSUInteger)hash {
+    NSUInteger result = [self.payloadDictionary hash];
+    return result;
+}
 - (NSString *)description {
     return [[self payloadDictionary] description];
 }

@@ -3,6 +3,50 @@ iOS Changelog
 
 Migration Guides: Documentation/Migration
 
+Version 10.0.0 - September 14, 2018
+===================================
+Major release to support iOS 12
+
+Changes
+-------
+- Added support for critical notifications.
+- Added support for provisional authorization.
+- Added support for summary category arguments.
+- Updated UANotificationContent with thread id and new summary argument fields.
+- Dropped support for iOS 9.
+- Removed APIs deprecated in previous versions of the SDK.
+
+
+Version 10.0.0-DP1 - September 5, 2018
+=======================================
+Developer Preview of iOS SDK 10
+
+- iOS 12 compatible preview.
+
+Changes
+-------
+- Dropped support for iOS 9.
+- Removed APIs deprecated in previous versions of the SDK.
+- Added support for critical notifications.
+- Added support for provisional authorization.
+- Added support for summary category arguments.
+- Updated UANotificationContent with thread id and new summary argument fields.
+
+
+Version 9.4.0 - September 4, 2018
+=================================
+Minor release thats adds support for tag group audiences, miss behaviors and resizable HTML messages in
+In-App Automation. HTML in-app messages are now displayed as dialogs by default, with an option
+to display fullscreen on smaller devices. This release also fixes a bug that could result in crashes 
+when serializing JSON payloads for certain audience conditions. Apps using In-App Automation are
+encouraged to upgrade.
+
+Changes
+-------
+- Added support for tag group audience conditions for in-app messages.
+- Fixed a bug that could prevent modal in-app messages from being displayed as fullscreen.
+- Fixed a JSON serialization bug which could cause crashes for certain audience conditions.
+
 Version 9.3.3 - July 26, 2018
 ============================
 Patch release to fix an issue with legacy in-app message attribution. Apps

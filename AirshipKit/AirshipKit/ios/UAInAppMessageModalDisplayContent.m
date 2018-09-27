@@ -274,7 +274,7 @@ NSUInteger const UAInAppMessageModalMaxButtons = 2;
 
     id allowFullScreenDisplay = json[UAInAppMessageModalAllowsFullScreenKey];
     if (allowFullScreenDisplay) {
-        if (![borderRadius isKindOfClass:[NSNumber class]]) {
+        if (![allowFullScreenDisplay isKindOfClass:[NSNumber class]]) {
             if (error) {
                 NSString *msg = [NSString stringWithFormat:@"Allows full screen flag must be a boolean stored as an NSNumber. Invalid value: %@", allowFullScreenDisplay];
                 *error =  [NSError errorWithDomain:UAInAppMessageModalDisplayContentDomain
@@ -311,7 +311,7 @@ NSUInteger const UAInAppMessageModalMaxButtons = 2;
     self = [super init];
 
     if (![builder isValid]) {
-        UA_LDEBUG(@"UAInAppMessageModalDisplayContent could not be initialized, builder has missing or invalid parameters.");
+        UA_LERR(@"UAInAppMessageModalDisplayContent could not be initialized, builder has missing or invalid parameters.");
         return nil;
     }
 
@@ -387,7 +387,7 @@ NSUInteger const UAInAppMessageModalMaxButtons = 2;
         return [[UAInAppMessageModalDisplayContent alloc] initWithBuilder:builder];
     }
 
-    UA_LINFO(@"Extended %@ with nil builderBlock. Returning self.", self);
+    UA_LDEBUG(@"Extended %@ with nil builderBlock. Returning self.", self);
     return self;
 }
 

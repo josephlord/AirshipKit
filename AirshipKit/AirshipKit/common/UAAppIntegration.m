@@ -55,12 +55,6 @@
     [[UAirship push] application:application didFailToRegisterForRemoteNotificationsWithError:error];
 }
 
-#if !TARGET_OS_TV   // UIUserNotificationSettings is not available on tvOS
-+ (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings {
-    [[UAirship push] application:application didRegisterUserNotificationSettings:notificationSettings];
-}
-#endif
-
 + (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
     switch(application.applicationState) {
         UA_LTRACE(@"Received remote notification: %@", userInfo);
@@ -108,25 +102,6 @@
 
 }
 
-#if !TARGET_OS_TV   // Delegate methods unavailable in tvOS
-+ (void)application:(UIApplication *)application handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo completionHandler:(void (^)(void))handler {
-    [self application:application handleActionWithIdentifier:identifier forRemoteNotification:userInfo withResponseInfo:nil completionHandler:handler];
-}
-
-+ (void)application:(UIApplication *)application handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo withResponseInfo:(NSDictionary *)responseInfo completionHandler:(void (^)(void))handler {
-    UA_LTRACE(@"Handling notification action: %@", identifier);
-
-    NSString *responseText = responseInfo ? responseInfo[UIUserNotificationActionResponseTypedTextKey] : nil;
-    UANotificationResponse *response = [UANotificationResponse notificationResponseWithNotificationInfo:userInfo
-                                                                                       actionIdentifier:identifier
-                                                                                        responseText:responseText];
-   [self handleNotificationResponse:response completionHandler:^(void) {
-       handler();
-   }];
-}
-#endif
-
-
 #pragma mark -
 #pragma mark NSNotification methods
 
@@ -134,7 +109,6 @@
     UA_LDEBUG(@"Notification center will present notification: %@", notification);
 
     UNNotificationPresentationOptions options = [[UAirship push] presentationOptionsForNotification:notification];
-    completionHandler(options);
 
     if (![UAirship shared].config.automaticSetupEnabled) {
         [self handleForegroundNotification:notification mergedOptions:options withCompletionHandler:^{
@@ -239,8 +213,24 @@
     [[UAirship legacyInAppMessaging] handleRemoteNotification:notificationContent];
 #endif
     
+    dispatch_group_t dispatchGroup = dispatch_group_create();
+
+    // array to store results of various concurrent fetches, so a summary can be provided to the system.
+    // because the fetches run concurrently access to `fetchResults` is synchronized.
+    __block NSMutableArray *fetchResults = [NSMutableArray array];
+    
     if (notificationContent.notificationInfo[kUANotificationRefreshRemoteDataKey]) {
-        [UAirship.remoteDataManager refresh];
+        dispatch_group_enter(dispatchGroup);
+        [UAirship.remoteDataManager refreshWithCompletionHandler:^(BOOL success) {
+            @synchronized (fetchResults) {
+                if (success) {
+                    [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultNewData]];
+                } else {
+                    [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultFailed]];
+                }
+            }
+            dispatch_group_leave(dispatchGroup);
+        }];
     }
 
     UASituation situation = [UIApplication sharedApplication].applicationState == UIApplicationStateActive ? UASituationForegroundPush : UASituationBackgroundPush;
@@ -249,40 +239,26 @@
     NSDictionary *metadata = @{ UAActionMetadataForegroundPresentationKey: @(foregroundPresentation),
                                 UAActionMetadataPushPayloadKey: notificationContent.notificationInfo };
 
-    __block NSUInteger resultCount = 0;
-    __block NSUInteger expectedCount = 1;
-    __block NSMutableArray *fetchResults = [NSMutableArray array];
-
 #if !TARGET_OS_TV   // Message Center not supported on tvOS
     // Refresh the message center, call completion block when finished
     if ([UAInboxUtils inboxMessageIDFromNotification:notificationContent.notificationInfo]) {
-        expectedCount = 2;
-
+        dispatch_group_enter(dispatchGroup);
         [[UAirship inbox].messageList retrieveMessageListWithSuccessBlock:^{
-            [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultNewData]];
-
-            dispatch_async(dispatch_get_main_queue(), ^{
-                resultCount++;
-
-                if (expectedCount == resultCount) {
-                    completionHandler([UAUtils mergeFetchResults:fetchResults]);
-                }
-            });
+            @synchronized (fetchResults) {
+                [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultNewData]];
+            }
+            dispatch_group_leave(dispatchGroup);
         } withFailureBlock:^{
-            [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultFailed]];
-
-            dispatch_async(dispatch_get_main_queue(), ^{
-                resultCount++;
-
-                if (expectedCount == resultCount) {
-                    completionHandler([UAUtils mergeFetchResults:fetchResults]);
-                }
-            });
+            @synchronized (fetchResults) {
+                [fetchResults addObject:[NSNumber numberWithInt:UIBackgroundFetchResultFailed]];
+            }
+            dispatch_group_leave(dispatchGroup);
         }];
     }
 #endif
 
     // Run the actions
+    dispatch_group_enter(dispatchGroup);
     [UAActionRunner runActionsWithActionValues:actionsPayload
                                      situation:situation
                                       metadata:metadata
@@ -292,18 +268,19 @@
                                  [[UAirship push] handleRemoteNotification:notificationContent
                                                                 foreground:(situation == UASituationForegroundPush)
                                                          completionHandler:^(UIBackgroundFetchResult fetchResult) {
-                                                             [fetchResults addObject:[NSNumber numberWithInt:fetchResult]];
-
-                                                             dispatch_async(dispatch_get_main_queue(), ^{
-                                                                 resultCount++;
-
-                                                                 if (expectedCount == resultCount) {
-                                                                     completionHandler([UAUtils mergeFetchResults:fetchResults]);
-                                                                 }
-                                                             });
+                                                             @synchronized (fetchResults) {
+                                                                 [fetchResults addObject:[NSNumber numberWithInt:fetchResult]];
+                                                             }
+                                                             dispatch_group_leave(dispatchGroup);
                                                          }];
-
                              }];
+    
+    dispatch_group_notify(dispatchGroup, dispatch_get_main_queue(),^{
+        // all processing of incoming notification is complete
+        if (completionHandler) {
+            completionHandler([UAUtils mergeFetchResults:fetchResults]);
+        }
+    });
 }
 
 #pragma mark -

@@ -10,6 +10,32 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
+ * Prepare results
+ */
+typedef NS_ENUM(NSInteger, UAAutomationSchedulePrepareResult) {
+    /**
+     * Schedule should continue executing.
+     */
+    UAAutomationSchedulePrepareResultContinue,
+
+    /**
+     * Schedule should skip executing.
+     */
+    UAAutomationSchedulePrepareResultSkip,
+
+    /**
+     * Schedule should skip executing. The schedule's execution count should be incremented
+     * and its execution interval should be handled.
+     */
+    UAAutomationSchedulePrepareResultPenalize,
+
+    /**
+     * Schedule should be cancelled.
+     */
+    UAAutomationSchedulePrepareResultCancel
+};
+
+/**
  * Automation engine delegate
  */
 @protocol UAAutomationEngineDelegate <NSObject>
@@ -21,6 +47,15 @@ NS_ASSUME_NONNULL_BEGIN
  * @returns Schedule info.
  */
 - (UAScheduleInfo *)createScheduleInfoWithBuilder:(UAScheduleInfoBuilder *)builder;
+
+/**
+ * Prepares the schedule.
+ *
+ * @param schedule The schedule.
+ * @param completionHandler Completion handler when the schedule is finished preparing.
+ */
+- (void)prepareSchedule:(UASchedule *)schedule
+      completionHandler:(void (^)(UAAutomationSchedulePrepareResult))completionHandler;
 
 /**
  * Checks if a schedule is ready to execute.
@@ -68,19 +103,22 @@ NS_ASSUME_NONNULL_BEGIN
  * Automation Engine constructor.
  *
  * @param automationStore An initialized UAAutomationStore
- * @param timerScheduler A timer scheduler
- * @return Initialized Automation Engine instance
- */
-+ (instancetype)automationEngineWithAutomationStore:(UAAutomationStore *)automationStore
-                                     timerScheduler:(UATimerScheduler *)timerScheduler;
-
-/**
- * Automation Engine constructor.
- *
- * @param automationStore An initialized UAAutomationStore
  * @return Initialized Automation Engine instance
  */
 + (instancetype)automationEngineWithAutomationStore:(UAAutomationStore *)automationStore;
+
+/**
+ * Automation Engine constructor. Used for testing.
+ *
+ * @param automationStore An initialized UAAutomationStore
+ * @param timerScheduler A timer scheduler
+ * @param notificationCenter The notification center.
+ * @return Initialized Automation Engine instance
+ */
++ (instancetype)automationEngineWithAutomationStore:(UAAutomationStore *)automationStore
+                                     timerScheduler:(UATimerScheduler *)timerScheduler
+                                 notificationCenter:(NSNotificationCenter *)notificationCenter;
+
 
 /**
  * Starts the Automation Engine.

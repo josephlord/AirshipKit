@@ -38,16 +38,6 @@
 @property (nonatomic, copy) NSArray *messages;
 
 /**
- * The view displayed when there are no messages
- */
-@property (nonatomic, weak) IBOutlet UIView *coverView;
-
-/**
- * Label displayed in the coverView
- */
-@property (nonatomic, weak) IBOutlet UILabel *coverLabel;
-
-/**
  * The default tint color to use when overriding the inherited tint.
  */
 @property (nonatomic, strong) UIColor *defaultTintColor;
@@ -112,12 +102,23 @@
  */
 @property (nonatomic, strong) dispatch_queue_t iconFetchQueue;
 
+/**
+ * Split view controller managing the inbox and message views
+ */
+@property (nonatomic, weak) UISplitViewController *splitViewController;
+
 @end
 
 @implementation UAMessageCenterListViewController
 
 - (instancetype)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
+    return [self initWithNibName:nibNameOrNil bundle:nibBundleOrNil splitViewController:nil];
+}
+
+- (instancetype)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil splitViewController:(UISplitViewController *)splitViewController {
     if (self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil]) {
+        self.splitViewController = splitViewController;
+        
         self.iconCache = [[NSCache alloc] init];
         self.iconCache.countLimit = kUAIconImageCacheMaxCount;
         self.iconCache.totalCostLimit = kUAIconImageCacheMaxByteCost;
@@ -156,8 +157,6 @@
     self.navigationItem.rightBarButtonItem = self.editItem;
 
     [self createToolbarItems];
-
-    self.coverLabel.text = UAMessageCenterLocalizedString(@"ua_empty_message_list");
 
     if (self.style.listColor) {
         self.messageTable.backgroundColor = self.style.listColor;
@@ -230,6 +229,12 @@
 }
 
 - (void)refreshStateChanged:(UIRefreshControl *)sender {
+
+    // Nothing to refresh if there's no user
+    if (![UAirship inboxUser].isCreated) {
+        [sender endRefreshing];
+    }
+
     if (sender.refreshing) {
         self.refreshControlAnimating = YES;
         UA_WEAKIFY(self)
@@ -307,9 +312,6 @@
     } else {
         [self handlePreviouslySelectedIndexPathsAnimated:NO];
     }
-
-    // Cover up if necessary
-    self.coverView.hidden = self.messages.count > 0;
     
     // Hide message view if necessary
     if (self.collapsed && (self.messages.count == 0) && (self.messageViewController == self.navigationController.visibleViewController)) {
@@ -496,11 +498,8 @@
     if (!self.messageViewController) {
         [self createMessageViewController];
     }
-    
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    [self.messageViewController loadMessage:message onlyIfChanged:YES];
-#pragma GCC diagnostic pop
+
+    [self.messageViewController loadMessageForID:message.messageID onlyIfChanged:YES onError:errorCompletion];
 
     if (message) {
         // only display the message if there is a message to display
@@ -956,10 +955,10 @@
         if (!messageToDisplay && self.selectedIndexPath) {
             messageToDisplay = [self messageForID:[self messageAtIndex:[self validateIndexPath:self.selectedIndexPath].row].messageID];
         }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        [self.messageViewController loadMessage:messageToDisplay onlyIfChanged:YES];
-#pragma GCC diagnostic pop
+
+        [self.messageViewController loadMessageForID:messageToDisplay.messageID onlyIfChanged:YES onError:^{
+            UA_LERR(@"Message load via chooseMessageDisplayAndReload resulted in error");
+        }];
 
         self.selectedMessage = messageToDisplay;
         
@@ -990,7 +989,6 @@
 }
 
 - (UIViewController *)primaryViewControllerForExpandingSplitViewController:(UISplitViewController *)splitViewController {
-    self.collapsed = NO;
     // Delay selection by a beat, to allow rotation to finish
 
     UA_WEAKIFY(self)
@@ -1003,7 +1001,6 @@
 }
 
 - (UIViewController *)primaryViewControllerForCollapsingSplitViewController:(UISplitViewController *)splitViewController {
-    self.collapsed = YES;
     // Returning nil causes the split view controller to default to the the existing secondary view controller
     return nil;
 }
@@ -1126,6 +1123,13 @@
 - (NSString *)iconURLStringForMessage:(UAInboxMessage *) message {
     NSDictionary *icons = [message.rawMessageObject objectForKey:@"icons"];
     return [icons objectForKey:@"list_icon"];
+}
+
+- (BOOL)collapsed {
+    if (self.splitViewController) {
+        return self.splitViewController.collapsed;
+    }
+    return YES;
 }
 
 @end

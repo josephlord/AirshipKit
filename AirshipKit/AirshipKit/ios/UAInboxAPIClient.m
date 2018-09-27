@@ -8,6 +8,7 @@
 #import "UAPreferenceDataStore+Internal.h"
 #import "UAirship.h"
 #import "UAPush.h"
+#import "UAJSONSerialization+Internal.h"
 
 @interface UAInboxAPIClient()
 
@@ -105,14 +106,14 @@ NSString *const UALastMessageListModifiedTime = @"UALastMessageListModifiedTime.
                                messages = [jsonResponse objectForKey:@"messages"];
                                
                                if (!messages) {
-                                   UA_LDEBUG(@"Unable to parse inbox message body: %@ Error: %@", data, parseError);
+                                   UA_LERR(@"Unable to parse inbox message body: %@ Error: %@", data, parseError);
                                    failureBlock();
                                    return;
                                }
                                
                                UA_LTRACE(@"Retrieved message list with status: %ld jsonResponse: %@", (unsigned long)httpResponse.statusCode, jsonResponse);
                                
-                               UA_LDEBUG(@"Setting Last-Modified time to '%@' for user %@'s message list.", lastModified, self.user.username);
+                               UA_LTRACE(@"Setting Last-Modified time to '%@' for user %@'s message list.", lastModified, self.user.username);
                                [self.dataStore setValue:lastModified
                                                  forKey:[NSString stringWithFormat:UALastMessageListModifiedTime, self.user.username]];
                                
@@ -132,7 +133,7 @@ NSString *const UALastMessageListModifiedTime = @"UALastMessageListModifiedTime.
     UARequest *request = [UARequest requestWithBuilderBlock:^(UARequestBuilder * _Nonnull builder) {
         NSDictionary *data = @{@"delete" : [messageURLs valueForKeyPath:@"absoluteString"] };
 
-        NSData* body = [NSJSONSerialization dataWithJSONObject:data
+        NSData* body = [UAJSONSerialization dataWithJSONObject:data
                                                        options:0
                                                          error:nil];
 
@@ -193,7 +194,7 @@ NSString *const UALastMessageListModifiedTime = @"UALastMessageListModifiedTime.
     UARequest *request = [UARequest requestWithBuilderBlock:^(UARequestBuilder * _Nonnull builder) {
         NSDictionary *data = @{@"mark_as_read" : [messageURLs valueForKeyPath:@"absoluteString"] };
 
-        NSData* body = [NSJSONSerialization dataWithJSONObject:data
+        NSData* body = [UAJSONSerialization dataWithJSONObject:data
                                                        options:0
                                                          error:nil];
 

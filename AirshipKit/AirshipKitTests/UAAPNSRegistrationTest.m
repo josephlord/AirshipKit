@@ -58,7 +58,7 @@
 
     [[self.mockedUserNotificationCenter expect] setNotificationCategories:normalizedCategories];
 
-    [self.pushRegistration updateRegistrationWithOptions:expectedOptions categories:self.testCategories];
+    [self.pushRegistration updateRegistrationWithOptions:expectedOptions categories:self.testCategories completionHandler:nil];
 
     [self.mockedUserNotificationCenter verify];
 }
@@ -83,7 +83,7 @@
         return YES;
     }]];
 
-    [self.pushRegistration updateRegistrationWithOptions:expectedOptions categories:self.testCategories];
+    [self.pushRegistration updateRegistrationWithOptions:expectedOptions categories:self.testCategories completionHandler:nil];
 
     [self.mockedUserNotificationCenter verify];
 }
@@ -112,10 +112,63 @@
 
     }] getNotificationSettingsWithCompletionHandler:OCMOCK_ANY];
 
-    [self.pushRegistration getAuthorizedSettingsWithCompletionHandler:^(UAAuthorizedNotificationSettings authorizedSettings) {
+    [self.pushRegistration getAuthorizedSettingsWithCompletionHandler:^(UAAuthorizedNotificationSettings authorizedSettings, UAAuthorizationStatus status) {
         XCTAssertTrue(authorizedSettings == expectedSettings);
+        XCTAssertFalse(status == UAAuthorizationStatusProvisional);
     }];
 }
 
+-(void)testGetCurrentAuthorizationProvisional {
+
+    // These expected options must match mocked UNNotificationSettings object below for the test to be valid
+    UAAuthorizedNotificationSettings expectedSettings =  UAAuthorizedNotificationSettingsLockScreen |
+                                                         UAAuthorizedNotificationSettingsNotificationCenter;
+
+    // Mock UNNotificationSettings object to match expected options since we can't initialize one
+    id mockNotificationSettings = [self mockForClass:[UNNotificationSettings class]];
+    [[[mockNotificationSettings stub] andReturnValue:OCMOCK_VALUE(UNAuthorizationStatusProvisional)] authorizationStatus];
+    [[[mockNotificationSettings stub] andReturnValue:OCMOCK_VALUE(UNNotificationSettingEnabled)] lockScreenSetting];
+    [[[mockNotificationSettings stub] andReturnValue:OCMOCK_VALUE(UNNotificationSettingEnabled)] notificationCenterSetting];
+
+    typedef void (^NotificationSettingsReturnBlock)(UNNotificationSettings * _Nonnull settings);
+
+    [[[self.mockedUserNotificationCenter stub] andDo:^(NSInvocation *invocation) {
+        void *arg;
+        [invocation getArgument:&arg atIndex:2];
+        NotificationSettingsReturnBlock returnBlock = (__bridge NotificationSettingsReturnBlock)arg;
+        returnBlock(mockNotificationSettings);
+
+    }] getNotificationSettingsWithCompletionHandler:OCMOCK_ANY];
+
+    [self.pushRegistration getAuthorizedSettingsWithCompletionHandler:^(UAAuthorizedNotificationSettings authorizedSettings, UAAuthorizationStatus status) {
+        XCTAssertTrue(authorizedSettings == expectedSettings);
+        XCTAssertTrue(status == UAAuthorizationStatusProvisional);
+    }];
+}
+
+-(void)testGetCriticalAlertAuthorization {
+    // These expected options must match mocked UNNotificationSettings object below for the test to be valid
+    UAAuthorizedNotificationSettings expectedSettings =  UAAuthorizedNotificationSettingsCriticalAlert;
+    
+    // Mock UNNotificationSettings object to match expected options since we can't initialize one
+    id mockNotificationSettings = [self mockForClass:[UNNotificationSettings class]];
+    [[[mockNotificationSettings stub] andReturnValue:OCMOCK_VALUE(UNAuthorizationStatusAuthorized)] authorizationStatus];
+    [[[mockNotificationSettings stub] andReturnValue:OCMOCK_VALUE(UNNotificationSettingEnabled)] criticalAlertSetting];
+    
+    typedef void (^NotificationSettingsReturnBlock)(UNNotificationSettings * _Nonnull settings);
+    
+    [[[self.mockedUserNotificationCenter stub] andDo:^(NSInvocation *invocation) {
+        void *arg;
+        [invocation getArgument:&arg atIndex:2];
+        NotificationSettingsReturnBlock returnBlock = (__bridge NotificationSettingsReturnBlock)arg;
+        returnBlock(mockNotificationSettings);
+        
+    }] getNotificationSettingsWithCompletionHandler:OCMOCK_ANY];
+    
+    [self.pushRegistration getAuthorizedSettingsWithCompletionHandler:^(UAAuthorizedNotificationSettings authorizedSettings, UAAuthorizationStatus status) {
+        XCTAssertTrue(authorizedSettings == expectedSettings);
+        XCTAssertTrue(status == UAAuthorizationStatusAuthorized);
+    }];
+}
 @end
 

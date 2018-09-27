@@ -29,7 +29,7 @@
     if (![[UAirship shared].whitelist isWhitelisted:url scope:UAWhitelistScopeJavaScriptInterface]) {
         // Don't log in the special case of about:blank URLs
         if (![url.absoluteString isEqualToString:@"about:blank"]) {
-            UA_LINFO(@"URL %@ is not whitelisted, not populating JS interface", url);
+            UA_LDEBUG(@"URL %@ is not whitelisted, not populating JS interface", url);
         }
         return;
     }
@@ -187,6 +187,8 @@
  * @param url The link's URL.
  * @returns YES if the link was handled, otherwise NO.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 - (BOOL)handleLinkClick:(NSURL *)url {
     // Send iTunes/Phobos urls to AppStore.app
     if ([[url host] isEqualToString:@"phobos.apple.com"] || [[url host] isEqualToString:@"itunes.apple.com"]) {
@@ -224,6 +226,7 @@
 
     return NO;
 }
+#pragma GCC diagnostic pop
 
 - (BOOL)isAirshipRequest:(NSURLRequest *)request {
     return [[request.URL scheme] isEqualToString:@"uairship"];

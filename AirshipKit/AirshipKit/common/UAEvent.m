@@ -3,6 +3,7 @@
 #import "UAEvent+Internal.h"
 #import "UAPush.h"
 #import "UAirship.h"
+#import "UAJSONSerialization+Internal.h"
 
 #if !TARGET_OS_TV   // CoreTelephony not supported in tvOS
 /*
@@ -88,9 +89,30 @@ static dispatch_once_t netInfoDispatchToken_;
     if ((UAAuthorizedNotificationSettingsNotificationCenter & authorizedSettings) > 0) {
         [notificationTypes addObject:@"notification_center"];
     }
+    
+    if ((UAAuthorizedNotificationSettingsCriticalAlert & authorizedSettings) > 0) {
+        [notificationTypes addObject:@"critical_alert"];
+    }
 #endif
 
     return notificationTypes;
+}
+
+- (NSString *)notificationAuthorization {
+    UAAuthorizationStatus authorizationStatus = [UAirship push].authorizationStatus;
+    
+    switch (authorizationStatus) {
+        case UAAuthorizationStatusNotDetermined:
+            return @"not_determined";
+        case UAAuthorizationStatusDenied:
+            return @"denied";
+        case UAAuthorizationStatusAuthorized:
+            return @"authorized";
+        case UAAuthorizationStatusProvisional:
+            return @"provisional";
+    }
+    
+    return @"not_determined";
 }
 
 - (NSUInteger)jsonEventSize {
@@ -100,7 +122,7 @@ static dispatch_once_t netInfoDispatchToken_;
     [eventDictionary setValue:self.eventID forKey:@"event_id"];
     [eventDictionary setValue:self.data forKey:@"data"];
 
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:eventDictionary
+    NSData *jsonData = [UAJSONSerialization dataWithJSONObject:eventDictionary
                                                        options:0
                                                          error:nil];
 
